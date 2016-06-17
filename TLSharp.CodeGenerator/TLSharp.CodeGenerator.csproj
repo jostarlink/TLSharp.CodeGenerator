@@ -51,7 +51,6 @@
     <Compile Include="CodeGenerator\Utils\AutoclearStringBuilder.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="scheme.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
