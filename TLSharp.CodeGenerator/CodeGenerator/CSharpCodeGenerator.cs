@@ -486,7 +486,6 @@ namespace TLSharp.CodeGenerator
                 isb.Append("public ");
                 isb.Append(obj.HasGeneric && obj.GenericResult ? "TLObject" : getSuitableType(getPrettyName(obj.ResultName)));
                 isb.AppendLine(" Result;");
-                isb.AppendLine();
                 isb.AppendLine("public override object GetResult() => Result;");
                 isb.AppendLine();
             }
