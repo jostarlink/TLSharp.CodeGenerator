@@ -675,39 +675,41 @@ namespace TLSharp.CodeGenerator
             {
                 isb.AppendLine();
                 isb.AppendLine("public override object this[string name]");
-                isb.OpenBrace();
-                isb.AppendLine("get");
-                isb.OpenBrace();
-
                 if (obj.Args.Any())
                 {
-                    isb.AppendLine("switch (name)");
                     isb.OpenBrace();
-                    foreach (var arg in obj.Args)
-                    {
-                        isb.Append("case \"");
-                        isb.Append(getPrettyName(arg.Name));
-                        isb.Append("\": return ");
-                        isb.Append(getPrettyName(arg.Name));
-                        isb.AppendLine(";");
-                    }
-                    isb.AppendLine("default: throw new KeyNotFoundException();");
-                    isb.CloseBrace();
+                    isb.AppendLine("get");
+                    isb.OpenBrace();
+
+                        isb.AppendLine("switch (name)");
+                        isb.OpenBrace();
+                        foreach (var arg in obj.Args)
+                        {
+                            isb.Append("case \"");
+                            isb.Append(getPrettyName(arg.Name));
+                            isb.Append("\": return ");
+                            isb.Append(getPrettyName(arg.Name));
+                            isb.AppendLine(";");
+                        }
+                        isb.AppendLine("default: throw new KeyNotFoundException();");
+                        isb.CloseBrace();
+
+                        isb.CloseBrace();
+                        isb.CloseBrace();
                 }
                 else
                 {
-                    isb.AppendLine("throw new InvalidOperationException(\"This type has no properties\");");
+                    isb.AppendLine(" { get { throw new InvalidOperationException(\"This type has no properties\"); } }");
                 }
 
-                isb.CloseBrace();
-                isb.CloseBrace();
 
                 isb.AppendLine();
-                isb.AppendLine("public override bool HasKey(string name)");
-                isb.OpenBrace();
-
+                isb.Append("public override bool HasKey(string name)");
                 if (obj.Args.Any())
                 {
+                    isb.AppendLine();
+                    isb.OpenBrace();
+
                     isb.AppendLine("switch (name)");
                     isb.OpenBrace();
                     foreach (var arg in obj.Args)
@@ -716,19 +718,17 @@ namespace TLSharp.CodeGenerator
                         isb.Append(getPrettyName(arg.Name));
                         isb.AppendLine("\":");
                     }
-                    ++isb.Indentation;
-                    isb.AppendLine("return true;");
-
-                    --isb.Indentation;
+                    isb.Length -= Environment.NewLine.Length;
+                    isb.AppendLine(" return true;", true);
                     isb.AppendLine("default: return false;");
+                    isb.CloseBrace();
+
                     isb.CloseBrace();
                 }
                 else
                 {
-                    isb.AppendLine("return false;");
+                    isb.AppendLine(" => false;");
                 }
-
-                isb.CloseBrace();
             }
 
             #endregion
