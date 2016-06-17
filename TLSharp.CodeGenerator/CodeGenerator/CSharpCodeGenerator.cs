@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace TLSharp.CodeGenerator
@@ -123,9 +124,12 @@ namespace TLSharp.CodeGenerator
             // TLObject
             isb.AppendLine("public abstract class TLObject");
             isb.OpenBrace();
-            isb.AppendLine("public abstract uint ConstructorCode { get; }");
+            isb.AppendLine("public abstract TL.Types ConstructorCode { get; }");
             isb.AppendLine("public abstract void Write(TBinaryWriter writer);");
             isb.AppendLine("public abstract void Read(TBinaryReader reader);");
+            isb.AppendLine();
+            isb.AppendLine("public abstract object this[string name] { get; }");
+            isb.AppendLine("public abstract bool HasKey(string name); ");
             isb.CloseBrace();
             isb.AppendLine();
 
@@ -134,7 +138,7 @@ namespace TLSharp.CodeGenerator
             isb.OpenBrace();
             isb.AppendLine("public long MessageId { get; set; }");
             isb.AppendLine("public int Sequence { get; set; }");
-            isb.AppendLine("public abstract uint ConstructorCode { get; }");
+            isb.AppendLine("public abstract TL.Types ConstructorCode { get; }");
             isb.AppendLine();
             isb.AppendLine("public bool Dirty { get; set; }");
             isb.AppendLine();
@@ -251,14 +255,20 @@ namespace TLSharp.CodeGenerator
             isb.AppendLine("public TLObject ReadTLObject()");
             isb.OpenBrace();
             isb.AppendLine("var code = ReadUInt32();");
-            isb.AppendLine("return ReadTLObject(code);");
+            isb.AppendLine("return ReadTLObject((TL.Types)code);");
             isb.CloseBrace();
             isb.AppendLine();
 
             // TBinaryReader::ReadTLObject(uint code)
             isb.AppendLine("public TLObject ReadTLObject(uint code)");
             isb.OpenBrace();
-            isb.AppendLine("TLObject obj = (TLObject)Activator.CreateInstance(TL.Constructors[code]);");
+            isb.AppendLine("return ReadTLObject((TL.Types)code);");
+            isb.CloseBrace();
+
+            // TBinaryReader::ReadTLObject(TLType type)
+            isb.AppendLine("public TLObject ReadTLObject(TL.Types type)");
+            isb.OpenBrace();
+            isb.AppendLine("TLObject obj = (TLObject)Activator.CreateInstance(TL.Constructors[type]);");
             isb.AppendLine("obj.Read(this);");
             isb.AppendLine("return obj;");
             isb.CloseBrace();
@@ -341,18 +351,44 @@ namespace TLSharp.CodeGenerator
             isb.AppendLine("public class TL");
             isb.OpenBrace();
 
+
+
+            #region Types enum
+
+            isb.AppendLine("#region Types enumeration");
+            isb.AppendLine();
+            isb.AppendLine("public enum Types : uint");
+            isb.OpenBrace();
+
+            foreach (var obj in objs)
+            {
+                isb.Append(getPrettyName(obj));
+                isb.Append(" = 0x");
+                isb.Append(obj.Constructor);
+                isb.AppendLine(",");
+            }
+
+            isb.Length -= 1 + Environment.NewLine.Length; // 1 = ",".Length
+            isb.CloseBrace();
+
+            isb.AppendLine();
+            isb.AppendLine("#endregion");
+            isb.AppendLine();
+
+            #endregion
+
             #region Constructors dictionary
 
             isb.AppendLine("#region Constructors dictionary");
             isb.AppendLine();
-            isb.AppendLine("public static readonly Dictionary<uint, Type> Constructors = new Dictionary<uint, Type>()");
+            isb.AppendLine("public static readonly Dictionary<Types, Type> Constructors = new Dictionary<Types, Type>()");
             isb.OpenBrace();
 
             foreach (var obj in objs)
                 if (!obj.IsFunction)
                 {
-                    isb.Append("{ 0x");
-                    isb.Append(obj.Constructor);
+                    isb.Append("{ Types.");
+                    isb.Append(getPrettyName(obj));
                     isb.Append(", typeof(");
                     isb.Append(getPrettyName(obj));
                     isb.AppendLine(") },");
@@ -425,8 +461,8 @@ namespace TLSharp.CodeGenerator
             isb.OpenBrace();
 
             // set constructor getter: «public uint ConstructorCode => 0x<constructor>;»
-            isb.Append("public override uint ConstructorCode => 0x");
-            isb.Append(obj.Constructor);
+            isb.Append("public override Types ConstructorCode => Types.");
+            isb.Append(getPrettyName(obj));
             isb.AppendLine(";");
             isb.AppendLine();
 
@@ -510,7 +546,8 @@ namespace TLSharp.CodeGenerator
                 isb.AppendLine();
             }
 
-            // write: «public override void Write(TBinaryWriter writer)»
+            #region write: «public override void Write(TBinaryWriter writer)»
+
             if (obj.IsFunction)
                 isb.AppendLine("public override void OnSend(TBinaryWriter writer)");
             else
@@ -537,8 +574,8 @@ namespace TLSharp.CodeGenerator
                 --isb.Indentation;
             }
 
-            // write constructor code: «writer.Write(ConstructorCode);»
-            isb.AppendLine("writer.Write(ConstructorCode);");
+            // write constructor code: «writer.Write((uint)ConstructorCode);»
+            isb.AppendLine("writer.Write((uint)ConstructorCode);");
             if (obj.HasFlags)
             {
                 isb.AppendLine("writer.Write(flags);");
@@ -550,7 +587,10 @@ namespace TLSharp.CodeGenerator
             isb.CloseBrace();
             isb.AppendLine();
 
-            // read: «public override void Read(TBinaryReader reader)»
+            #endregion
+
+            #region read: «public override void Read(TBinaryReader reader)»
+
             if (obj.IsFunction)
                 isb.AppendLine("public override void OnResponse(TBinaryReader reader)");
             else
@@ -626,6 +666,72 @@ namespace TLSharp.CodeGenerator
                 isb.AppendLine(");");
             }
             isb.CloseBrace();
+
+            #endregion
+
+            #region Indexers
+
+            if (!obj.IsFunction)
+            {
+                isb.AppendLine();
+                isb.AppendLine("public override object this[string name]");
+                isb.OpenBrace();
+                isb.AppendLine("get");
+                isb.OpenBrace();
+
+                if (obj.Args.Any())
+                {
+                    isb.AppendLine("switch (name)");
+                    isb.OpenBrace();
+                    foreach (var arg in obj.Args)
+                    {
+                        isb.Append("case \"");
+                        isb.Append(getPrettyName(arg.Name));
+                        isb.Append("\": return ");
+                        isb.Append(getPrettyName(arg.Name));
+                        isb.AppendLine(";");
+                    }
+                    isb.AppendLine("default: throw new KeyNotFoundException();");
+                    isb.CloseBrace();
+                }
+                else
+                {
+                    isb.AppendLine("throw new InvalidOperationException(\"This type has no properties\");");
+                }
+
+                isb.CloseBrace();
+                isb.CloseBrace();
+
+                isb.AppendLine();
+                isb.AppendLine("public override bool HasKey(string name)");
+                isb.OpenBrace();
+
+                if (obj.Args.Any())
+                {
+                    isb.AppendLine("switch (name)");
+                    isb.OpenBrace();
+                    foreach (var arg in obj.Args)
+                    {
+                        isb.Append("case \"");
+                        isb.Append(getPrettyName(arg.Name));
+                        isb.AppendLine("\":");
+                    }
+                    ++isb.Indentation;
+                    isb.AppendLine("return true;");
+
+                    --isb.Indentation;
+                    isb.AppendLine("default: return false;");
+                    isb.CloseBrace();
+                }
+                else
+                {
+                    isb.AppendLine("return false;");
+                }
+
+                isb.CloseBrace();
+            }
+
+            #endregion
 
             isb.CloseBrace();
             return isb.ToString();

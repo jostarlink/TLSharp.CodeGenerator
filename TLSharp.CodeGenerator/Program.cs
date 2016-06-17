@@ -40,9 +40,9 @@ namespace TLSharp.CodeGenerator
             var compiler = new CSharpCodeGenerator { Namespace = "TLSharp.Core.MTProto" };
             if (args.Length > 1)
             {
-                Console.WriteLine("Compiling...");
+                Console.WriteLine("Generating...");
                 File.WriteAllText(args[1], compiler.GetTLObjectsCode(all, 0));
-                Console.WriteLine("Compiled");
+                Console.WriteLine("Generated");
                 return;
             }
         }
