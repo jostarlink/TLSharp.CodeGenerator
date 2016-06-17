@@ -151,6 +151,8 @@ namespace TLSharp.CodeGenerator
             isb.AppendLine("public abstract bool Confirmed { get; }");
             isb.AppendLine("public abstract bool Responded { get; }");
             isb.AppendLine();
+            isb.AppendLine("public abstract object GetResult();");
+            isb.AppendLine();
             isb.AppendLine("public virtual void OnSendSuccess()");
             isb.OpenBrace();
             isb.AppendLine("SendTime = DateTime.Now;");
@@ -484,6 +486,8 @@ namespace TLSharp.CodeGenerator
                 isb.Append("public ");
                 isb.Append(obj.HasGeneric && obj.GenericResult ? "TLObject" : getSuitableType(getPrettyName(obj.ResultName)));
                 isb.AppendLine(" Result;");
+                isb.AppendLine();
+                isb.AppendLine("public override object GetResult() => Result;");
                 isb.AppendLine();
             }
 
